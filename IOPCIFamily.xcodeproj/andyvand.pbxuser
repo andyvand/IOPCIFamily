@@ -1,0 +1,144 @@
+// !$*UTF8*$!
+{
+	089C1669FE841209C02AAC07 /* Project object */ = {
+		activeBuildConfigurationName = Deployment;
+		activeExecutable = AB70C5320F017C1E00B4AE56 /* IOPCIFamily Headers */;
+		activeTarget = A613B2750D46AA65007BA726 /* IOPCIFamily */;
+		addToTargets = (
+			A613B2750D46AA65007BA726 /* IOPCIFamily */,
+		);
+		codeSenseManager = AB70C5380F017C2600B4AE56 /* Code sense */;
+		executables = (
+			AB70C5320F017C1E00B4AE56 /* IOPCIFamily Headers */,
+		);
+		perUserDictionary = {
+			PBXConfiguration.PBXFileTableDataSource3.PBXFileTableDataSource = {
+				PBXFileTableDataSourceColumnSortingDirectionKey = "-1";
+				PBXFileTableDataSourceColumnSortingKey = PBXFileDataSource_Filename_ColumnID;
+				PBXFileTableDataSourceColumnWidthsKey = (
+					20,
+					341,
+					20,
+					48,
+					43,
+					43,
+					20,
+				);
+				PBXFileTableDataSourceColumnsKey = (
+					PBXFileDataSource_FiletypeID,
+					PBXFileDataSource_Filename_ColumnID,
+					PBXFileDataSource_Built_ColumnID,
+					PBXFileDataSource_ObjectSize_ColumnID,
+					PBXFileDataSource_Errors_ColumnID,
+					PBXFileDataSource_Warnings_ColumnID,
+					PBXFileDataSource_Target_ColumnID,
+				);
+			};
+			PBXConfiguration.PBXTargetDataSource.PBXTargetDataSource = {
+				PBXFileTableDataSourceColumnSortingDirectionKey = "-1";
+				PBXFileTableDataSourceColumnSortingKey = PBXFileDataSource_Filename_ColumnID;
+				PBXFileTableDataSourceColumnWidthsKey = (
+					20,
+					301,
+					60,
+					20,
+					48,
+					43,
+					43,
+				);
+				PBXFileTableDataSourceColumnsKey = (
+					PBXFileDataSource_FiletypeID,
+					PBXFileDataSource_Filename_ColumnID,
+					PBXTargetDataSource_PrimaryAttribute,
+					PBXFileDataSource_Built_ColumnID,
+					PBXFileDataSource_ObjectSize_ColumnID,
+					PBXFileDataSource_Errors_ColumnID,
+					PBXFileDataSource_Warnings_ColumnID,
+				);
+			};
+			PBXPerProjectTemplateStateSaveDate = 251756208;
+			PBXWorkspaceStateSaveDate = 251756208;
+		};
+		sourceControlManager = AB70C5370F017C2600B4AE56 /* Source Control */;
+		userBuildSettings = {
+		};
+	};
+	1590524609368A190010639A /* IOPCIConfigurator.cpp */ = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {519, 32690}}";
+			sepNavSelRange = "{0, 0}";
+			sepNavVisRange = "{0, 905}";
+		};
+	};
+	4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */ = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {910, 43652}}";
+			sepNavSelRange = "{4728, 0}";
+			sepNavVisRange = "{4210, 1036}";
+			sepNavWindowFrame = "{{84, 80}, {969, 630}}";
+		};
+	};
+	A613B2750D46AA65007BA726 /* IOPCIFamily */ = {
+		activeExec = 0;
+	};
+	A613B28C0D46AA65007BA726 /* Info.plist */ = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{38, 122}, {969, 630}}";
+		};
+	};
+	A613B28E0D46AA65007BA726 /* IOPCIFamily Headers */ = {
+		activeExec = 0;
+		executables = (
+			AB70C5320F017C1E00B4AE56 /* IOPCIFamily Headers */,
+		);
+	};
+	A613B2A50D46AA65007BA726 /* AppleSamplePCI */ = {
+		activeExec = 0;
+	};
+	A6F210C70A78022400875EC6 /* AppleSamplePCIShared.h */ = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {546, 770}}";
+			sepNavSelRange = "{455, 30}";
+			sepNavVisRange = "{0, 621}";
+		};
+	};
+	AB70C5320F017C1E00B4AE56 /* IOPCIFamily Headers */ = {
+		isa = PBXExecutable;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		autoAttachOnCrash = 1;
+		breakpointsEnabled = 1;
+		configStateDict = {
+		};
+		customDataFormattersEnabled = 1;
+		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
+		libgmallocEnabled = 0;
+		name = "IOPCIFamily Headers";
+		sourceDirectories = (
+		);
+	};
+	AB70C5370F017C2600B4AE56 /* Source Control */ = {
+		isa = PBXSourceControlManager;
+		fallbackIsa = XCSourceControlManager;
+		isSCMEnabled = 0;
+		scmConfiguration = {
+		};
+	};
+	AB70C5380F017C2600B4AE56 /* Code sense */ = {
+		isa = PBXCodeSenseManager;
+		indexTemplatePath = "";
+	};
+	AB70C5400F017C4000B4AE56 /* version.plist */ = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{61, 101}, {969, 630}}";
+		};
+	};
+}

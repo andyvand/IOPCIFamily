@@ -1,0 +1,1 @@
+ const unsigned char IOPCIFamilyVersionString[] __attribute__ ((used)) = "@(#)PROGRAM:IOPCIFamily  PROJECT:IOPCIFamily-2.5" "\n"; const double IOPCIFamilyVersionNumber __attribute__ ((used)) = (double)2.5;
