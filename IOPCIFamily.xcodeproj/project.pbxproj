@@ -424,7 +424,6 @@
 			buildSettings = {
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				OTHER_CFLAGS = (
-					"-nostdinc",
 					"-I/System/Library/Frameworks/Kernel.framework/Headers",
 					"-I/System/Library/Frameworks/Kernel.framework/PrivateHeaders",
 					"$(inherited)",
@@ -442,7 +441,6 @@
 				GCC_ALTIVEC_EXTENSIONS = YES;
 				GCC_AUTO_VECTORIZATION = YES;
 				GCC_DEBUGGING_SYMBOLS = "";
-				GCC_ENABLE_OBJC_GC = supported;
 				GCC_FAST_MATH = YES;
 				GCC_FEEDBACK_DIRECTED_OPTIMIZATION = UseProfile;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
@@ -453,7 +451,6 @@
 				INSTALL_OWNER = wheel;
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				OTHER_CFLAGS = (
-					"-nostdinc",
 					"-I/System/Library/Frameworks/Kernel.framework/Headers",
 					"-I/System/Library/Frameworks/Kernel.framework/PrivateHeaders",
 					"$(inherited)",
@@ -468,7 +465,6 @@
 			buildSettings = {
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				OTHER_CFLAGS = (
-					"-nostdinc",
 					"-I/System/Library/Frameworks/Kernel.framework/Headers",
 					"-I/System/Library/Frameworks/Kernel.framework/PrivateHeaders",
 					"$(inherited)",
@@ -678,7 +674,6 @@
 			buildSettings = {
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				OTHER_CFLAGS = (
-					"-nostdinc",
 					"-I/System/Library/Frameworks/Kernel.framework/Headers",
 					"-I/System/Library/Frameworks/Kernel.framework/PrivateHeaders",
 					"$(inherited)",
@@ -765,7 +760,6 @@
 			buildSettings = {
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				OTHER_CFLAGS = (
-					"-nostdinc",
 					"-I/System/Library/Frameworks/Kernel.framework/Headers",
 					"-I/System/Library/Frameworks/Kernel.framework/PrivateHeaders",
 					"$(inherited)",

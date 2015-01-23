@@ -117,6 +117,7 @@ protected:
     {
         struct IOPCIRange * rangeLists[kIOPCIResourceTypeCount];
         IORangeAllocator * cardBusMemoryRanges;
+        IORangeAllocator * cardBusBridgeIORanges;
         IOPCIMessagedInterruptController *messagedInterruptController;
     };
 

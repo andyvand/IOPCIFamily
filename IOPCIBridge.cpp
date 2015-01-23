@@ -63,6 +63,10 @@ extern "C"
 #define SUB_ABSOLUTETIME(t1, t2) (AbsoluteTime_to_scalar(t1) -=	AbsoluteTime_to_scalar(t2))
 #endif
 
+#ifndef gIOPCIDebug
+#define gIOPCIDebug 4
+#endif
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #ifndef VERSION_MAJOR
@@ -78,6 +82,7 @@ extern "C"
 #endif
 
 #define cardBusMemoryRanges	  reserved->cardBusMemoryRanges
+#define cardBusBridgeIORanges reserved->cardBusBridgeIORanges
 
 // #define DEADTEST		"UPS0"
 // #define DEFERTEST	1
@@ -307,6 +312,301 @@ IOWorkLoop * IOPCIBridge::getConfiguratorWorkLoop(void) const
 {
     return (gIOPCIConfigWorkLoop);
 }
+
+//Slice - from 1.7
+//AnV - Fix for Yosemite
+bool IOPCIBridge::checkCardBusNumbering(OSArray * children)
+{
+    IOPCIDevice * child;
+    int childIndex;
+    UInt8 parentSecBus, parentSubBus;
+    UInt8 priBus, secBus, subBus;
+    UInt8 theBusIDs[256];
+    
+    OSArray * yentas = OSArray::withCapacity(0x10);
+    OSArray * pciBridges = OSArray::withCapacity(0x10);
+    if (!yentas || !pciBridges) goto error;
+    
+    // clear out the bus id we will be checking
+    parentSecBus = firstBusNum();
+    parentSubBus = lastBusNum();
+    for (int i = parentSecBus; i <= parentSubBus; theBusIDs[i] = 0, i++);
+    
+    childIndex = 0;
+    while ((child = OSDynamicCast(IOPCIDevice, children->getObject(childIndex++)))) {
+        
+        UInt8 headerType = child->configRead8(kIOPCIConfigHeaderType);
+        
+        // we only care about bridge chips
+        if ( ((headerType & 0x7) != 0x1) && ((headerType & 0x7) != 0x2) ) {
+            continue;
+        }
+        
+        // is there room for an subordinate pci bridge? we only need to
+        // check for this if we find a child bridge
+        if (parentSecBus == parentSubBus) {
+            IOLog("%s: bad bridge bus numbering, no room to fix, bailing out!\n", getName());
+            goto error;
+        }
+        
+        priBus = child->configRead8(kPCI2PCIPrimaryBus);
+        secBus = child->configRead8(kPCI2PCISecondaryBus);
+        subBus = child->configRead8(kPCI2PCISubordinateBus);
+        
+        UInt8 device = child->getDeviceNumber();
+        UInt8 function = child->getFunctionNumber();
+        if (4 & gIOPCIDebug) {
+            IOLog("DEBUG name = %s, hdr = 0x%x, parent [%d - %d], device(%d, %d) pri %d [%d - %d]\n",
+                  child->getName(), headerType, parentSecBus, parentSubBus,
+                  device, function, priBus, secBus, subBus);
+        }
+        
+        if ((headerType & 0x7) == 0x2) {	// we only tweek the yenta bridges
+            
+            // keep track the yenta bridges for later
+            yentas->setObject(child);
+            
+            // check cardbus settings,  parentSec = pri < sec <= sub <= parentSub
+            
+            if (priBus != parentSecBus) {
+                if (4 & gIOPCIDebug)
+                    IOLog("DEBUG fixing bad primary bus setting on %s device(%d, %d) - was %d now %d\n",
+                          child->getName(), device, function, priBus, parentSecBus);
+                priBus = parentSecBus;
+                child->configWrite8(kPCI2PCIPrimaryBus, priBus);
+            }
+            if (subBus > parentSubBus) {
+                if (4 & gIOPCIDebug)
+                    IOLog("DEBUG bad subordinate bus setting (subBus > parentSubBus) - was %d now %d\n",
+                          subBus, parentSubBus);
+                
+                // try to squeeze it in
+                subBus = parentSubBus;
+                child->configWrite8(kPCI2PCISubordinateBus, subBus);
+            }
+            if (subBus <= parentSecBus) {
+                if (4 & gIOPCIDebug)
+                    IOLog("DEBUG bad subordinate bus setting (subBus <= parentSecBus) - was %d now %d\n",
+                          subBus, parentSecBus + 1);
+                
+                // try to squeeze it in
+                subBus = parentSecBus + 1;
+                child->configWrite8(kPCI2PCISubordinateBus, subBus);
+            }
+            
+            // at this point we should have reasonable pri and sub settings
+            // although range may be too small to contain what is attached
+            
+            if (secBus <= priBus) {
+                if (4 & gIOPCIDebug)
+                    IOLog("DEBUG bad secondary bus setting (secBus <= priBus) - was %d now %d\n",
+                          secBus, priBus + 1);
+                
+                // try to bump it up one
+                secBus = priBus +1;
+                child->configWrite8(kPCI2PCISecondaryBus, secBus);
+            }
+            if (secBus > subBus) {
+                if (4 & gIOPCIDebug)
+                    IOLog("DEBUG bad secondary bus setting (secBus > subBus) - was %d now %d\n",
+                          secBus, subBus);
+                
+                // try to set its sub
+                secBus = subBus;
+                child->configWrite8(kPCI2PCISecondaryBus, secBus);
+            }
+            
+        } else {	// not a yenta bridge
+            
+            pciBridges->setObject(child);
+            
+            for (int i = secBus; i <= subBus; i++) {
+                
+                // check for overlaps with other bridge ranges on the same bus
+                // on the first pass skipping yenta bridges since they may also be
+                // claiming to be using bus ids that also belong to other bridges.
+                
+                if (theBusIDs[i]) {
+                    
+                    IOLog("%s: bogus pci bridge config, bus id %d is being used twice, hdr type = 0x%x\n",
+                          getName(), i, headerType);
+                    goto error;
+                    
+                } else {
+                    
+                    theBusIDs[i] = 1;
+                }
+            }
+        }
+    }
+    
+#ifdef __i386__
+    // Fill the void between PCI-PCI bridges by expanding their
+    // subordinate bus number. This attempts to propagate a larger
+    // bus number range to the cardbus controllers.
+    
+    if ( yentas->getCount() == 0 && pciBridges->getCount() )
+    {
+        childIndex = 0;
+        while (child = (IOPCIDevice *)pciBridges->getObject(childIndex++))
+        {
+            UInt8 newSubBus = subBus = child->configRead8( kPCI2PCISubordinateBus );
+            
+            for (int j = subBus + 1; j <= parentSubBus && theBusIDs[j] == 0; j++)
+            {
+                newSubBus = j;
+                theBusIDs[j] = 1;
+            }
+            
+            if ( newSubBus != subBus )
+                child->configWrite8( kPCI2PCISubordinateBus, newSubBus );
+        }
+    }
+#endif
+    
+    // on the second pass, we know what what has been claimed by the
+    // the other busses, if what is set fits then just use it, else
+    // try to give a range of one bus to use.
+    
+    childIndex = 0;
+    while ((child = (IOPCIDevice *)yentas->getObject(childIndex++))) {
+        
+        secBus = child->configRead8(kPCI2PCISecondaryBus);
+        subBus = child->configRead8(kPCI2PCISubordinateBus);
+        
+        for (int j = secBus; j <= subBus; j++) {
+            
+            if (theBusIDs[j]) {
+                //if (4 & gIOPCIDebug)
+                IOLog("DEBUG yenta bus id %d is being used twice\n", j);
+                
+                // back out bad bus ids, except this one
+                for (int k = secBus; k < j; k++) theBusIDs[k] = 0;
+                
+                // find a free bus id
+                int free = 0;
+                for (int k = parentSecBus + 1; k <= parentSubBus; k++) {
+                    if (theBusIDs[k] == 0) {
+                        free = k;
+                        break;
+                    }
+                }
+                
+                if (free) {
+                    //if (4 & gIOPCIDebug)
+                    IOLog("DEBUG found free bus range at %d\n", free);
+                    
+                    // set it up
+                    child->configWrite8(kPCI2PCISecondaryBus, free);
+                    child->configWrite8(kPCI2PCISubordinateBus, free);
+                    
+                    // take it out of the array
+                    theBusIDs[free] = 1;
+                } else {
+                    // it looks like we have already given too much
+                    // another yenta bridge?
+                    
+                    // we could zero out all yentas, and recurse on ourselves?
+                    
+                    // bail out for now on this bridge (for now)
+                    child->configWrite8(kPCI2PCISecondaryBus, 0);
+                    child->configWrite8(kPCI2PCISubordinateBus, 0);
+                }
+                
+                break;
+                
+            } else {
+                
+                theBusIDs[j] = 1;
+            }
+        }
+    }
+    
+    if (yentas) yentas->release();
+    if (pciBridges) pciBridges->release();
+    return false;
+    
+error:
+    if (yentas) yentas->release();
+    if (pciBridges) pciBridges->release();
+    return true;
+}
+
+void IOPCIBridge::checkCardBusResources( const OSArray * nubs,
+                                        UInt32 * yentaIndices, UInt32 yentaCount )
+{
+    IOPCIDevice * yenta;
+    UInt32        index;
+    UInt32        socketBase;
+    
+    if (!yentaCount || !cardBusMemoryRanges) return;
+    
+    // Allocate 4K bytes for socket registers on each cardbus bridge
+    if (cardBusMemoryRanges->allocate(4096 * yentaCount, (IORangeScalar *)&socketBase, 4096) == false)
+    {
+        IOLog("%s: cardbus memory allocation failed\n", getName());
+        return;
+    }
+    
+    // Create "ranges" property
+    OSData * ranges = OSData::withCapacity( 5 * sizeof(UInt32) * 2 );
+    if (ranges)
+    {
+        IOPCIAddressSpace space;
+        IOPhysicalAddress start;
+        
+        for ( IOByteCount size = 8192 * 1024; size >= 4096; size >>= 1 )
+        {
+            if (cardBusMemoryRanges->allocate( size, &start, 4096 ))
+            {
+                space.s.space = kIOPCI32BitMemorySpace;
+                ranges->appendBytes( &space, sizeof(space) );
+                ranges->appendBytes( &start, sizeof(start) );
+                ranges->appendBytes( &space, sizeof(space) );
+                ranges->appendBytes( &start, sizeof(start) );
+                ranges->appendBytes( &size,  sizeof(size)  );
+                //if (1 & gIOPCIDebug)
+                IOLog("%s: cardbus memory range %llu bytes @ 0x%08llx\n",
+                      getName(), size, start);
+                break;
+            }
+        }
+
+        for ( IOByteCount size = 8 * 1024; size >= 32; size >>= 1 )
+        {
+            if (cardBusBridgeIORanges->allocate(size, &start, 0))
+            {
+                space.s.space = kIOPCIIOSpace;
+                ranges->appendBytes( &space, sizeof(space) );
+                ranges->appendBytes( &start, sizeof(start) );
+                ranges->appendBytes( &space, sizeof(space) );
+                ranges->appendBytes( &start, sizeof(start) );
+                ranges->appendBytes( &size,  sizeof(size)  );
+                //if (1 & gIOPCIDebug)
+                IOLog("%s: cardbus I/O range %llu bytes at 0x%08llx\n",
+                      getName(), size, start);
+                break;
+            }
+        }
+    }
+    
+    for ( UInt32 i = 0; i < yentaCount; i++ )
+    {
+        index = yentaIndices[i];  // 1-based index
+        yenta = (IOPCIDevice *) nubs->getObject(index - 1);
+        assert(yenta);
+        
+        yenta->setMemoryEnable( false );
+        yenta->configWrite32( kIOPCIConfigBaseAddress0, socketBase );
+        socketBase += 4096;
+        
+        if (ranges && 0==i) yenta->setProperty( "ranges", ranges );
+        publishNub( yenta, index );
+    }
+}
+
+//Slice - end of inserted
+//
 
 IOReturn IOPCIBridge::configOp(IOService * device, uintptr_t op, void * result, void * arg)
 {
@@ -614,12 +914,19 @@ bool IOPCIBridge::start( IOService * provider )
     if (reserved == 0) return (false);
     bzero(reserved, sizeof(ExpansionData));
 
+    //AnV Additions
+    cardBusBridgeIORanges = IORangeAllocator::withRange( 0, 1, 8,
+                                                 IORangeAllocator::kLocking );
+    assert(cardBusBridgeIORanges);
+    setProperty("Bridge IO Ranges", cardBusBridgeIORanges);
+    //
+
     //Slice
 #if defined(__i386__) || defined(__x86_64__)
      cardBusMemoryRanges = IORangeAllocator::withRange( 0, 1, 8,
                            IORangeAllocator::kLocking );
 #endif
- //
+    //
 
 
     if (!configure(provider)) return (false);
@@ -680,7 +987,15 @@ void IOPCIBridge::free( void )
     if (cardBusMemoryRanges)
     {
          cardBusMemoryRanges->release();
-         cardBusMemoryRanges = 0;
+         cardBusMemoryRanges = NULL;
+    }
+    //
+
+    //AnV Additions
+    if (cardBusBridgeIORanges)
+    {
+        cardBusBridgeIORanges->release();
+        cardBusBridgeIORanges = NULL;
     }
     //
 
@@ -1742,8 +2057,7 @@ bool IOPCIBridge::checkProperties( IOPCIDevice * entry )
 }
 
 #if VERSION_MAJOR < 13
-static char *
-strnstr(char *s, const char *find, size_t slen)
+static char *strnstr(char *s, const char *find, size_t slen)
 {
   char c, sc;
   size_t len;
@@ -2389,15 +2703,12 @@ bool IOPCIBridge::constructRange( IOPCIAddressSpace * flags,
 		}
 		if (!ok) panic("IOMD::initWithOptions");
 		md->redirect(TASK_NULL, false);
-	}
-	else
-	{
+	} else {
 		if (kIOPCIIOSpace == flags->s.space)
 		{
 			if (!(ioMemory = ioDeviceMemory()))
 				md = 0;
-			else
-			{
+			else {
 				phys &= 0x00ffffff; // seems bogus
 				md = IOSubMemoryDescriptor::withSubRange(ioMemory, phys, len, kIOMemoryThreadSafe);
 				if (md == 0)
@@ -2408,11 +2719,8 @@ bool IOPCIBridge::constructRange( IOPCIAddressSpace * flags,
 								len, kIODirectionNone | kIOMemoryHostOnly, NULL );
 				}
 			}
-		}
-		else
-		{
-			md = IOMemoryDescriptor::withAddressRange(
-								phys, len, kIODirectionNone | kIOMemoryMapperNone, NULL);
+		} else {
+			md = IOMemoryDescriptor::withAddressRange(phys, len, kIODirectionNone | kIOMemoryMapperNone, NULL);
 		}
         ok = array->setObject(md);
 	}

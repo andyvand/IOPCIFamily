@@ -21,23 +21,6 @@
  */
 
 
-#ifndef KB
-#define KB 1024
-#endif
-
-#ifndef MB
-#define MB (KB * 1024)
-#endif
-
-#ifndef GB
-#define GB (MB * 1024)
-#endif
-
-#define PFM64_SIZE    (2ULL*GB)
-#define MAX_BAR_SIZE  (1ULL*GB)
-// NPHYSMAP
-// #define PFM64_MAX     (100ULL*GB)
-
 #include <IOKit/assert.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOPlatformExpert.h>
@@ -48,6 +31,23 @@
 #if ACPI_SUPPORT
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 #endif
+
+#ifndef KB
+#define KB 1024ULL
+#endif
+
+#ifndef MB
+#define MB (KB * 1024ULL)
+#endif
+
+#ifndef GB
+#define GB (MB * 1024ULL)
+#endif
+
+#define PFM64_SIZE    (2ULL*GB)
+#define MAX_BAR_SIZE  (1ULL*GB)
+// NPHYSMAP
+// #define PFM64_MAX     (100ULL*GB)
 
 #include <libkern/sysctl.h>
 
