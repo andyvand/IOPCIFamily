@@ -215,4 +215,4 @@ void IOPCIDevice::ioWrite8( UInt16 offset, UInt8 value,
 }
 
 
-#endif // __i386__
+#endif //   

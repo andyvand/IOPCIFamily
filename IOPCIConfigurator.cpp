@@ -473,6 +473,21 @@ void CLASS::removeFixedRanges(IORegistryEntry * root)
 }
 #endif
 
+#define bit32(n)		(1U << (n))
+#define bitmask32(h,l)		((bit32(h)|(bit32(h)-1)) & ~(bit32(l)-1))
+#define bitfield32(x,h,l)	((((x) & bitmask32(h,l)) >> l))
+
+static uint32_t get_cpuid_address_bits_physical()
+{
+    uint32_t address_bits_physical = 0;
+    uint32_t reg[4];
+    
+    do_cpuid(0x80000008, reg);
+    address_bits_physical = bitfield32(reg[eax], 7, 0);
+    
+    return address_bits_physical;
+}
+
 bool CLASS::createRoot(void)
 {
     IOPCIConfigEntry * root;
@@ -492,7 +507,7 @@ bool CLASS::createRoot(void)
     root->secBusNum    = 0xff;
 
 #if defined(__i386__) || defined(__x86_64__)
-	cpuPhysBits = cpuid_info()->cpuid_address_bits_physical;
+	cpuPhysBits = get_cpuid_address_bits_physical();
     size  = PFM64_SIZE;
 	if (cpuPhysBits > 44) cpuPhysBits = 44;
 	start = (1ULL << cpuPhysBits);
@@ -523,6 +538,25 @@ bool CLASS::createRoot(void)
     fRoot = root;
 
     return (true);
+}
+
+#define quad(hi,lo)	(((uint64_t)(hi)) << 32 | (lo))
+
+static boolean_t hasVMM()
+{
+    uint32_t reg[4];
+    uint32_t features;
+
+    do_cpuid(1, reg);
+
+    features = quad(reg[ecx], reg[edx]);
+
+    if (features & CPUID_FEATURE_VMM)
+    {
+        return true;
+    }
+
+    return false;
 }
 
 IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
@@ -566,7 +600,7 @@ IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
 		if ( (0x27A08086 == fRootVendorProduct)
 		  || (0x27AC8086 == fRootVendorProduct)
 		  || (0x25C08086 == fRootVendorProduct)
-	      || (CPUID_FEATURE_VMM & cpuid_features()))
+	      || hasVMM() /*(CPUID_FEATURE_VMM & cpuid_features())*/)
 #endif
 			fFlags &= ~kIOPCIConfiguratorPFM64;
 		DLOG("root id 0x%x, flags 0x%x\n", fRootVendorProduct, (int) fFlags);

@@ -72,8 +72,6 @@
 		<string>8.0.0b1</string>
 		<key>com.apple.kpi.unsupported</key>
 		<string>8.0.0b1</string>
-		<key>com.apple.kpi.private</key>
-		<string>8.0.0b1</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>

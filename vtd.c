@@ -874,7 +874,278 @@ AppleVTD::install(IOWorkLoop * wl, uint32_t flags,
 	}
 }
 
-bool 
+#define bit32(n)		(1U << (n))
+#define bitmask32(h,l)		((bit32(h)|(bit32(h)-1)) & ~(bit32(l)-1))
+#define bitfield32(x,h,l)	((((x) & bitmask32(h,l)) >> l))
+#define bit(n)		(1U << (n))
+#define bitmask(h,l)		((bit(h)|(bit(h)-1)) & ~(bit(l)-1))
+#define bitfield(x,h,l)	((((x) & bitmask(h,l)) >> l))
+
+/* For AMD CPU's */
+static boolean_t isAmdCPU(void) {
+   	uint32_t ourcpuid[4];
+   	do_cpuid(0, ourcpuid);
+   	if ((ourcpuid[ebx] == 0x68747541) &&
+   	    (ourcpuid[ecx] == 0x444D4163) &&
+   	    (ourcpuid[edx] == 0x69746E65))
+        return TRUE;
+    
+   	return FALSE;
+};
+
+/* For Intel CPU's */
+static boolean_t isIntelCPU(void) {
+   	uint32_t ourcpuid[4];
+   	do_cpuid(0, ourcpuid);
+   	if ((ourcpuid[ebx] == 0x756E6547) &&
+        (ourcpuid[ecx] == 0x6C65746E) &&
+        (ourcpuid[edx] == 0x49656E69))
+        return TRUE;
+
+   	return FALSE;
+}
+
+/* Cache linesize function for Intel and AMD */
+static uint32_t get_cache_linesize(void)
+{
+    uint32_t	reg[4] = {0, 0, 0, 0};
+    uint32_t	cache_level = 0;
+    uint32_t    cpuid_family = 0;
+    uint32_t    cache_type = 0;
+    uint32_t	cache_linesize = 0;
+    cache_type_t    type = Lnone;
+    uint32_t    cache_outsizes[5];
+    boolean_t   cpuid_deterministic_supported = false;
+    
+    if (isAmdCPU())
+    {
+        do_cpuid(1, reg);
+        cpuid_family = bitfield32(reg[eax], 11,  8);
+        
+        do_cpuid(0x80000006, reg) ;
+        uint32_t L3ULinesPerTag = bitfield(reg[edx], 11, 8);
+        
+        switch (cpuid_family)
+        {
+            case K8_FAMILY:
+            {
+                int i=0;
+                for (i = 1; i < 4; i++)
+                {
+                    switch (i) {
+                        case 1:
+                            type  = 1 == 1 ? L1D : Lnone;
+                            
+                            if(type == L1D)
+                            {
+                                cache_level = 1;
+                                do_cpuid(0x80000005, reg) ;
+                                
+                                cache_linesize = bitfield(reg[ecx],7,0);
+                                cache_outsizes[L1D] = cache_linesize;
+                            }
+                            break;
+                            
+                        case 2:
+                            type = 2 == 2 ? L1I : Lnone;
+                            
+                            if(type == L1I)
+                            {
+                                cache_level = 1;
+                                
+                                do_cpuid(0x80000005, reg);
+                                cache_linesize = bitfield(reg[edx],7,0);
+                                cache_outsizes[L1I] = cache_linesize;
+                            }
+                            break;
+                            
+                        case 3:
+                            type = 3 == 3 ? L2U : Lnone;
+                            
+                            if(type == L2U)
+                            {
+                                do_cpuid(0x80000006, reg) ;
+                                cache_linesize = bitfield(reg[ecx],7,0);
+                                cache_outsizes[L2U] = cache_linesize;
+                            }
+                            break;
+                            
+                        case Lnone:
+                        default:
+                            break;
+                    }
+                }
+            }
+                break;
+                
+            case K10_FAMILY:
+            case 0x14:
+            case 0x12:
+            {
+                int i;
+                
+                for (i = 1; i < 5; i++)
+                {
+                    switch (i) {
+                        case 1:
+                            cache_level = 1;
+                            do_cpuid(0x80000005, reg) ;
+                            cache_linesize = bitfield(reg[ecx],7,0);
+                            cache_outsizes[L1D] = cache_linesize;
+                            break;
+                            
+                        case 2:
+                            cache_level = 1;
+                            do_cpuid(0x80000005, reg);
+                            cache_linesize = bitfield(reg[edx],7,0);
+                            cache_outsizes[L1I] = cache_linesize;
+                            break;
+                            
+                        case 3:
+                            type = 3 == 3 ? L2U : Lnone;
+                            cache_level = 2;
+                            
+                            if (type == L2U)
+                            {
+                                do_cpuid(0x80000006, reg) ;
+                                cache_linesize = bitfield(reg[ecx],7,0);
+                                cache_outsizes[L2U] = cache_linesize;
+                            }
+                            break;
+                            
+                        case 4:
+                            cache_level = 3;
+                            
+                            if(L3ULinesPerTag)
+                            {
+                                do_cpuid(0x80000006, reg) ;
+                                cache_linesize = bitfield(reg[edx],7,0);
+                                cache_outsizes[L3U] = cache_linesize;
+                            }
+                            break;
+                            
+                        case Lnone:
+                        default:
+                            break;
+                    }
+                }
+            }
+                break;
+                
+            case K15_FAMILY:
+            case 0x16:
+            case 0x6:
+            {
+                uint32_t i;
+                for (i = 0; 0<4 ; i++)
+                {
+                    reg[eax] = 0x8000001D;		/* cpuid request 0x8000001D */
+                    reg[ecx] = i;	/* index starting at 0 */
+                    cpuid(reg);
+                    
+                    cache_type = bitfield(reg[eax], 4, 0);
+                    
+                    if (cache_type == 0)
+                        break;		/* no more caches */
+                    
+                    cache_level  		= bitfield(reg[eax],  7,  5);
+                    cache_linesize		= bitfield(reg[ebx], 11,  0) + 1;
+                    
+                    switch (cache_level) {
+                        case 1:
+                            if (cache_type == 1)
+                            {
+                                cache_outsizes[L1D] = cache_linesize;
+                            } else if (cache_type == 2) {
+                                cache_outsizes[L1I] = cache_linesize;
+                            }
+                            break;
+                            
+                        case 2:
+                            if (cache_type == 3)
+                            {
+                                cache_outsizes[L2U] = cache_linesize;
+                            }
+                            break;
+                            
+                        case 3:
+                            if (cache_type == 3)
+                            {
+                                cache_outsizes[L3U] = cache_linesize;
+                            }
+                            break;
+                            
+                        default:
+                            break;
+                    }
+                }
+                
+            }
+                break;
+                
+            default:
+                break;
+        }
+    } else if (isIntelCPU()) {
+        do_cpuid(0, reg);
+        
+        if (reg[eax] >= 4)
+            cpuid_deterministic_supported = true;
+        
+        for (uint32_t index = 0; cpuid_deterministic_supported; index++)
+        {
+            reg[eax] = 4;		/* cpuid request 4 */
+            reg[ecx] = index;	/* index starting at 0 */
+            cpuid(reg);
+            
+            cache_type = bitfield32(reg[eax], 4, 0);
+            
+            if (cache_type == 0)
+                break; /* no more caches */
+            
+            cache_level = bitfield32(reg[eax],  7,  5);
+            cache_linesize = bitfield32(reg[ebx], 11,  0) + 1;
+            
+            switch(cache_level)
+            {
+                case 1:
+                    if (cache_type == 1)
+                    {
+                        cache_outsizes[L1D] = cache_linesize;
+                    } else if (cache_type == 2) {
+                        cache_outsizes[L1I] = cache_linesize;
+                    }
+                    break;
+                    
+                case 2:
+                    if (cache_type == 3)
+                    {
+                        cache_outsizes[L2U] = cache_linesize;
+                    }
+                    break;
+                    
+                case 3:
+                    if (cache_type == 3)
+                    {
+                        cache_outsizes[L3U] = cache_linesize;
+                    }
+                    break;
+                    
+                default:
+                    break;
+            }
+        }
+    }
+
+    if (cache_outsizes[L2U])
+        return cache_outsizes[L2U];
+    else if (cache_outsizes[L1D])
+        return cache_outsizes[L1D];
+    
+    return 0;
+}
+
+bool
 AppleVTD::init(IOWorkLoop * wl, const OSData * data)
 {
 	uint32_t unitIdx;
@@ -885,7 +1156,7 @@ AppleVTD::init(IOWorkLoop * wl, const OSData * data)
 	fDMARData = data;
 	wl->retain();
 	fWorkLoop = wl;
-	fCacheLineSize = cpuid_info()->cache_linesize;
+    fCacheLineSize = get_cache_linesize(); /*cpuid_info()->cache_linesize;*/
 
 	ACPI_TABLE_DMAR *           dmar = (typeof(dmar))      data->getBytesNoCopy();
 	ACPI_DMAR_HEADER *          dmarEnd = (typeof(dmarEnd))(((uintptr_t) dmar) + data->getLength());

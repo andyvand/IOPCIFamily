@@ -129,6 +129,9 @@
 		A6F210C60A78022400875EC6 /* AppleSamplePCIClient.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = AppleSamplePCIClient.c; sourceTree = "<group>"; };
 		A6F210C70A78022400875EC6 /* AppleSamplePCIShared.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleSamplePCIShared.h; sourceTree = "<group>"; };
 		A6F210C80A78022400875EC6 /* AppleSamplePCIUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleSamplePCIUserClient.cpp; sourceTree = "<group>"; };
+		A908AEB91A72B88900207404 /* balloc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = balloc.c; sourceTree = "<group>"; };
+		A908AEBB1A72B89F00207404 /* rballoc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = rballoc.c; sourceTree = "<group>"; };
+		A908AEBC1A72B89F00207404 /* vtd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vtd.c; sourceTree = "<group>"; };
 		B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIMessagedInterruptController.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -186,6 +189,9 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				A908AEB91A72B88900207404 /* balloc.c */,
+				A908AEBB1A72B89F00207404 /* rballoc.c */,
+				A908AEBC1A72B89F00207404 /* vtd.c */,
 				B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */,
 				1590524609368A190010639A /* IOPCIConfigurator.cpp */,
 				A6849D12126539090033F95C /* IOPCIRange.cpp */,

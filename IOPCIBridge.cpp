@@ -440,7 +440,7 @@ bool IOPCIBridge::checkCardBusNumbering(OSArray * children)
         }
     }
     
-#ifdef __i386__
+#if defined(__i386__) || defined(__x86_64__)
     // Fill the void between PCI-PCI bridges by expanding their
     // subordinate bus number. This attempts to propagate a larger
     // bus number range to the cardbus controllers.
@@ -448,7 +448,7 @@ bool IOPCIBridge::checkCardBusNumbering(OSArray * children)
     if ( yentas->getCount() == 0 && pciBridges->getCount() )
     {
         childIndex = 0;
-        while (child = (IOPCIDevice *)pciBridges->getObject(childIndex++))
+        while ((child = (IOPCIDevice *)pciBridges->getObject(childIndex++)))
         {
             UInt8 newSubBus = subBus = child->configRead8( kPCI2PCISubordinateBus );
             
@@ -2056,8 +2056,8 @@ bool IOPCIBridge::checkProperties( IOPCIDevice * entry )
     return (true);
 }
 
-#if VERSION_MAJOR < 13
-static char *strnstr(char *s, const char *find, size_t slen)
+#if 1 // VERSION_MAJOR < 13
+static char *local_strnstr(char *s, const char *find, size_t slen)
 {
   char c, sc;
   size_t len;
@@ -2100,7 +2100,7 @@ void IOPCIBridge::updateWakeReason(IOPCIDevice * device)
 		if (reasonProp && (len = reasonProp->getLength()))
 		{
 			propCStr = reasonProp->getCStringNoCopy();
-			if (strnstr((char *) propCStr, reason, len + 1)) break;
+			if (local_strnstr((char *) propCStr, reason, len + 1)) break;
 			snprintf(wakeBuffer, sizeof(wakeBuffer), "%s %s", propCStr, reason);
 			reason = wakeBuffer;
 		}
@@ -2575,10 +2575,10 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
  
 checkCardBusNumbering(nubs);
 
-#ifdef __i386__
+#if defined(__i386__) || defined(__x86_64__)
     // probe all device BAR's before publishing nubs
     idx = 0;
-    while (nub = (IOPCIDevice *)nubs->getObject(idx++)) {
+    while ((nub = (IOPCIDevice *)nubs->getObject(idx++))) {
     //    resolvePCIInterrupt( provider, nub );
         if ((nub->configRead8(kIOPCIConfigHeaderType) & 0x7) == 0x2)
         {
